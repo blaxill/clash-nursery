@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Increase inline & specialization limits. 'Hash-cores' hits the default limits
+# due to repeated uses of round functions.
+# Defaults are at
+# <https://github.com/clash-lang/clash-compiler/blob/29c5d66bdf38a9c23c5b2e951c964b86b7f7d2b2/Clash.hs#L44>
+# -fclash-spec-limit, specialization limit
+# -fclash-inline-limit, inlining limit
+stack exec clashi --       \
+  -fclash-spec-limit=200   \
+  -fclash-inline-limit=200 \
+  -outputdir out

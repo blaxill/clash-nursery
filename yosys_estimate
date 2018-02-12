@@ -1,0 +1,6 @@
+#!/bin/sh
+
+docker run -v `pwd`/out/verilog/$1:/verilog --rm -it yosys \
+  yosys \
+  -p "read_verilog /verilog/*.v" \
+  -p "synth_xilinx -top $2"

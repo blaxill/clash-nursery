@@ -1,0 +1,28 @@
+name:                j1-simple
+version:             0.1.0.0
+license:             BSD3
+author:              Ben Blaxill
+maintainer:          Ben Blaxill <ben.blaxill@gmail.com>
+copyright:           2018
+category:            Hardware
+build-type:          Simple
+-- extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     J1.Core
+  build-depends:       base >= 4.7 && < 5
+                     , ghc-typelits-extra
+                     , ghc-typelits-natnormalise
+                     , ghc-typelits-knownnat
+                     , clash-prelude
+                     , clash-ghc
+                     , lens
+                     , mtl
+                     , singletons                >= 1.0     && < 3.0
+                     , template-haskell
+  default-language:    Haskell2010
+  ghc-options:         -fplugin=GHC.TypeLits.Extra.Solver
+                       -fplugin=GHC.TypeLits.Normalise
+                       -fplugin=GHC.TypeLits.KnownNat.Solver
