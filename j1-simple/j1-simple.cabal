@@ -12,6 +12,8 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     J1.Core
+                     , J1.Types
+                     , J1.Top
   build-depends:       base >= 4.7 && < 5
                      , ghc-typelits-extra
                      , ghc-typelits-natnormalise
