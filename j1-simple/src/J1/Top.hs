@@ -52,9 +52,9 @@ j1WithRam' input =
         dw = dataStackWrite <$> output
         rw = returnStackWrite <$> output
 
-        dataStack = Clash.Prelude.readNew (blockRamPow2 $
+        dataStack = J1.Top.readNew (blockRamPow2 $
           repeat (errorX "Uninitialized data stack element!"))
-        returnStack = Clash.Prelude.readNew (blockRamPow2 $
+        returnStack = J1.Top.readNew (blockRamPow2 $
           repeat (errorX "Uninitialized return stack element!"))
 
         dsRead = dataStack dpu (tagWriteWithPointer <$> dpu <*> dw)
