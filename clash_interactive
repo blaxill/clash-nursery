@@ -9,4 +9,5 @@
 stack exec clashi --       \
   -fclash-spec-limit=200   \
   -fclash-inline-limit=200 \
-  -outputdir out
+  -outputdir out           \
+  "$@"
