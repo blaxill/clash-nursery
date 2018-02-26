@@ -12,7 +12,12 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 
-module J1.Top where
+module J1.Top
+  ( j1'
+  , j1
+  , j1WithRam'
+  , j1WithRam
+  ) where
 
 import qualified Clash.Explicit.BlockRam as E
 import qualified Clash.Explicit.Signal   as E (register)
@@ -39,7 +44,7 @@ j1WithRam' :: (HasClockReset domain gated synchronous)
   => Signal domain Input
   -> Signal domain CoreOutput
 j1WithRam' input =
-    let output = j1' (CoreInput <$> input <*> dsRead <*> rsRead)
+    let output = j1' (CoreInput <$> input <*> rsRead <*> dsRead)
 
         (StackPointers dp rp) = unbundle (setStackPointers <$> output)
         dpu = fmap unpack dp
@@ -47,10 +52,10 @@ j1WithRam' input =
         dw = dataStackWrite <$> output
         rw = returnStackWrite <$> output
 
-        dataStack = J1.Top.readNew (blockRamPow2 $
-          repeat (errorX "Uninitialized stack element!"))
-        returnStack = J1.Top.readNew (blockRamPow2 $
-          repeat (errorX "Uninitialized stack element!"))
+        dataStack = Clash.Prelude.readNew (blockRamPow2 $
+          repeat (errorX "Uninitialized data stack element!"))
+        returnStack = Clash.Prelude.readNew (blockRamPow2 $
+          repeat (errorX "Uninitialized return stack element!"))
 
         dsRead = dataStack dpu (tagWriteWithPointer <$> dpu <*> dw)
         rsRead = returnStack rpu (tagWriteWithPointer <$> rpu <*> rw)

@@ -14,9 +14,28 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 
-module J1.Types where
+module J1.Types
+  ( Word16
+  , Word13
+  , StackDepth
+  , StackIndex
+
+  , AluOp(..)
+  , InstructionAction(..)
+  , Return(..)
+  , Instruction(..)
+
+  , WriteAddr(..)
+  , StackPointers(..)
+  , State(..)
+  , Input(..)
+  , CoreInput(..)
+  , CoreOutput(..)
+  ) where
 
 import           Clash.Prelude
+import           Control.DeepSeq (NFData)
+import           Data.Monoid
 import           GHC.Generics
 
 -- * Shorthand type aliases
@@ -31,7 +50,7 @@ type StackIndex = BitVector (CLog 2 StackDepth)
 -- | ALU operation to perform, see the source for 'alu' for the available
 -- operations.
 newtype AluOp = AluOp { unaluOp :: BitVector 4 }
-  deriving (Show, Eq, Enum, Num)
+  deriving (Show, Eq, Enum, Num, Bits, NFData, ShowX, Default)
 
 -- | Encodes if the instruction N, R, [T] or IO is overwritten by T or N.
 data InstructionAction
@@ -40,13 +59,13 @@ data InstructionAction
   | T2R  -- ^ T -> R (Writes top to top of return stack)
   | N2MT -- ^ N -> [T] (Writes next of data stack to memory at "top of data stack" address)
   | N2IO -- ^ N -> IO (Writes next of stack to the IO port)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 -- | 'Alu' flag designating if the top of return stack will pop and overwrite
 -- the program counter.
 data Return
   = Return | NoReturn
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 -- | Instruction data type, either a literal, a jump/call or an ALU operation.
 data Instruction
@@ -61,12 +80,12 @@ data Instruction
     (Signed 2)
     (Signed 2) -- ^ Alu operation containing 'AluOp', 'Return', 'InstructionAction',
                -- return stack adjustment ('Signed' 2) and data stack adjustment ('Signed' 2)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 instance BitPack AluOp where
   type BitSize AluOp = 4
-  pack = pack
-  unpack = unpack
+  pack = pack . unaluOp
+  unpack = AluOp . unpack
 
 instance BitPack Return where
   type BitSize Return = 1
@@ -111,16 +130,52 @@ instance BitPack Instruction where
                       in Alu a b flags g h
       _            -> errorX "Failed to decode instruction!"
 
+instance NFData Return
+instance NFData InstructionAction
+instance NFData Instruction
+
+instance Default Return where
+  def = NoReturn
+instance Default InstructionAction where
+  def = NoAction
+instance Default Instruction where
+  def = unpack ((0b011 :: BitVector 3) ++# 0) -- Noop
+
+instance ShowX Return
+instance ShowX InstructionAction
+instance ShowX Instruction
+
+mixAction NoAction y = y
+mixAction x NoAction = x
+mixAction _ _        = error "No clear action on mix"
+
+mixReturn NoReturn y = y
+mixReturn x NoReturn = x
+mixReturn _ _        = error "No clear return on mix"
+instance Monoid Return where
+  mempty = NoReturn
+  mappend NoReturn NoReturn = NoReturn
+  mappend _ _               = Return
+instance Monoid InstructionAction where
+  mempty = NoAction
+  mappend NoAction rhs = rhs
+  mappend lhs NoAction = lhs
+  mappend lhs _        = lhs
+instance Monoid Instruction where
+  mempty = def
+  mappend (Alu op1 r2pc1 flags1 rpd1 dpd1) (Alu op2 r2pc2 flags2 rpd2 dpd2) =
+    Alu (op1 .|. op2) (r2pc1 <> r2pc2) (flags1 <> flags2) (rpd1 + rpd2) (dpd1 + dpd2)
+
 -- * Core types
 
 data WriteAddr = WriteAddr
   { writeAddr  :: Word16
   , writeValue :: Word16
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
 
 data StackPointers p = StackPointers
-  { dataPointer   :: p
-  , returnPointer :: p
+  { returnPointer :: p
+  , dataPointer   :: p
   } deriving (Show, Eq, Generic)
 
 data State = State
@@ -132,22 +187,23 @@ data State = State
 data Input = Input
   { memoryRx      :: Word16
   , ioRx          :: Word16
-  , instructionRx :: Word16
+  , instructionRx :: Instruction
   } deriving (Show, Eq, Generic)
 
 data CoreInput = CoreInput
   { input           :: Input
-  , dataStackRead   :: Word16
   , returnStackRead :: Word16
+  , dataStackRead   :: Word16
   } deriving (Show, Eq, Generic)
 
 data CoreOutput = CoreOutput
   { memoryReadAddr   :: Word16
-  , memoryTx         :: Maybe WriteAddr
-  , ioTx             :: Maybe Word16
+  , tx               :: WriteAddr
+  , memoryTxEnable   :: Bool
+  , ioTxEnable       :: Bool
   , instructionAddr  :: Word13
-  , dataStackWrite   :: Maybe Word16
   , returnStackWrite :: Maybe Word16
+  , dataStackWrite   :: Maybe Word16
   , setStackPointers :: StackPointers StackIndex
   } deriving (Show, Eq, Generic)
 
@@ -155,8 +211,25 @@ instance Bundle (StackPointers p) where
   type Unbundled domain (StackPointers p) = StackPointers (Signal domain p)
   bundle (StackPointers dp rp) = StackPointers <$> dp <*> rp
   unbundle p      = StackPointers (dataPointer <$> p) (returnPointer <$> p)
-instance ShowX p => ShowX (StackPointers p)
-instance Default p => Default (StackPointers p)
 
+instance ShowX WriteAddr
+instance ShowX p => ShowX (StackPointers p)
 instance ShowX State
+instance ShowX Input
+instance ShowX CoreInput
+instance ShowX CoreOutput
+
+instance Default WriteAddr
+instance Default p => Default (StackPointers p)
 instance Default State
+instance Default CoreInput
+instance Default CoreOutput where
+  def = CoreOutput def def False False def def def def
+instance Default Input
+
+instance NFData WriteAddr
+instance (NFData p) => NFData (StackPointers p)
+instance NFData State
+instance NFData Input
+instance NFData CoreInput
+instance NFData CoreOutput
